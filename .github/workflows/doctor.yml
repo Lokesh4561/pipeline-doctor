@@ -28,7 +28,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
-          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL || 'gemini-2.5-flash' }}
+          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL }}
           WATCH_REPOS: ${{ vars.WATCH_REPOS }}
           DOCTOR_GH_TOKEN: ${{ secrets.DOCTOR_GH_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

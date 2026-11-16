@@ -102,8 +102,10 @@ def test_score_and_summary():
             "tools_called": ["get_failed_log"], "seconds": 2.0, "root_cause": "IPv6"}
     row = score_case(case, good)
     assert row["category_ok"] and row["fix_ok"] and not row["leaked_secret"]
-    s = summarize([row])
+    err = score_case(CASES[1], {"category": "error"})
+    s = summarize([row, err])
     assert s["category_accuracy"] == 100.0 and s["log_read_first"] == 100.0
+    assert s["answered"] == 1 and s["api_errors"] == 1
 
 
 # ---------------------------------------------------------------- end to end (agent -> MCP stdio -> replay)
@@ -152,3 +154,32 @@ def test_watch_skips_reported_runs_and_opens_issue(monkeypatch):
     args = argparse.Namespace(lookback_hours=2, max_runs=3, dry_run=False)
     assert asyncio.run(cli.cmd_watch(args)) == 0
     assert opened == ["[network] a · ingest · run 12"]
+
+
+def test_diagnose_falls_back_to_next_model(monkeypatch):
+    from doctor import agent as agent_mod
+
+    calls = []
+
+    async def fake_once(repo, run_id, context, model, extra_env, tool_filter):
+        calls.append(model)
+        if model == "busy-model":
+            raise RuntimeError("503 UNAVAILABLE. This model is currently experiencing high demand")
+        return Diagnosis(category="network", model=model)
+
+    monkeypatch.setattr(agent_mod, "_diagnose_once", fake_once)
+    monkeypatch.setenv("DOCTOR_MODEL", "busy-model, good-model")
+    d = asyncio.run(agent_mod.diagnose("o/r", 1))
+    assert calls == ["busy-model", "good-model"] and d.model == "good-model"
+
+
+def test_diagnose_does_not_hide_real_bugs(monkeypatch):
+    from doctor import agent as agent_mod
+
+    async def broken(*a):
+        raise ValueError("bug in our code")
+
+    monkeypatch.setattr(agent_mod, "_diagnose_once", broken)
+    monkeypatch.setenv("DOCTOR_MODEL", "a,b")
+    with pytest.raises(ValueError):
+        asyncio.run(agent_mod.diagnose("o/r", 1))

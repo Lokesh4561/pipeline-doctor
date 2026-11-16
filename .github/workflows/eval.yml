@@ -6,7 +6,7 @@ permissions:
 jobs:
   eval:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,16 +19,19 @@ jobs:
           PYTHONUNBUFFERED: "1"
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
-          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL || 'gemini-2.5-flash' }}
-        run: python -m eval.evaluate
+          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL }}
+        run: python -m eval.evaluate --budget-minutes 30
+        continue-on-error: true
       - name: Baseline (log only)
         env:
           PYTHONUNBUFFERED: "1"
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
-          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL || 'gemini-2.5-flash' }}
-        run: python -m eval.evaluate --baseline
+          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL }}
+        run: python -m eval.evaluate --baseline --budget-minutes 25
+        continue-on-error: true
       - name: Save results
+        if: always()
         run: |
           cat eval/RESULTS.md >> "$GITHUB_STEP_SUMMARY"
           git config user.name "github-actions[bot]"

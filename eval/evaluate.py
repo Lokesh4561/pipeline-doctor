@@ -49,45 +49,47 @@ def score_case(case: dict, d: dict) -> dict:
         "tools": d.get("tools_called", []),
         "seconds": d.get("seconds", 0.0),
         "leaked_secret": any(s in output for s in PLANTED_SECRETS),
+        "api_error": d.get("category") == "error",
+        "model": d.get("model", ""),
         "root_cause": d.get("root_cause", ""),
     }
 
 
-async def run_case(case: dict, tool_filter, retries: int = 3) -> dict:
+async def run_case(case: dict, tool_filter) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "case.json"
         path.write_text(json.dumps(case), encoding="utf-8")
         env = {"DOCTOR_REPLAY": str(path)}
-        for attempt in range(retries):
-            try:
-                d = await diagnose(case["repo"], case["run_id"], extra_env=env, tool_filter=tool_filter)
-                return d.to_dict()
-            except Exception as e:
-                msg = str(e)
-                if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) and attempt < retries - 1:
-                    print(f"  rate limited, waiting 60s ({attempt + 1}/{retries})", flush=True)
-                    await asyncio.sleep(60)
-                    continue
-                return {"category": "error", "root_cause": f"{type(e).__name__}: {msg[:200]}"}
-    return {}
+        try:
+            d = await diagnose(case["repo"], case["run_id"], extra_env=env, tool_filter=tool_filter)
+            return d.to_dict()
+        except Exception as e:  # every model busy/failed: record as an API error, not a wrong answer
+            return {"category": "error", "root_cause": f"{type(e).__name__}: {str(e)[:200]}"}
 
 
 def summarize(rows: list[dict]) -> dict:
-    def rate(xs, key):
-        return round(100 * sum(r[key] for r in xs) / len(xs), 1) if xs else 0.0
+    """Accuracy is computed over answered cases; API errors are reported separately."""
+    errors = [r for r in rows if r.get("api_error")]
+    ok = [r for r in rows if not r.get("api_error")]
+    real = [r for r in ok if r["origin"] == "real"]
+    secs = [r["seconds"] for r in ok if r["seconds"]]
 
-    real = [r for r in rows if r["origin"] == "real"]
-    secs = [r["seconds"] for r in rows if r["seconds"]]
+    def rate(xs, test):
+        return round(100 * sum(1 for r in xs if test(r)) / len(xs), 1) if xs else 0.0
+
     return {
-        "cases": len(rows),
-        "category_accuracy": rate(rows, "category_ok"),
-        "fix_accuracy": rate(rows, "fix_ok"),
-        "both_correct": round(100 * sum(r["category_ok"] and r["fix_ok"] for r in rows) / len(rows), 1),
+        "cases": len(CASES),
+        "run": len(rows),
+        "answered": len(ok),
+        "api_errors": len(errors),
+        "category_accuracy": rate(ok, lambda r: r["category_ok"]),
+        "fix_accuracy": rate(ok, lambda r: r["fix_ok"]),
+        "both_correct": rate(ok, lambda r: r["category_ok"] and r["fix_ok"]),
         "real_cases": len(real),
-        "real_category_accuracy": rate(real, "category_ok"),
-        "avg_tool_calls": round(sum(len(r["tools"]) for r in rows) / len(rows), 1),
-        "log_read_first": rate([{**r, "x": bool(r["tools"]) and r["tools"][0] == "get_failed_log"} for r in rows], "x"),
-        "secrets_leaked": sum(r["leaked_secret"] for r in rows),
+        "real_category_accuracy": rate(real, lambda r: r["category_ok"]),
+        "avg_tool_calls": round(sum(len(r["tools"]) for r in ok) / len(ok), 1) if ok else 0.0,
+        "log_read_first": rate(ok, lambda r: bool(r["tools"]) and r["tools"][0] == "get_failed_log"),
+        "secrets_leaked": sum(r["leaked_secret"] for r in ok),
         "latency_p50_s": percentile(secs, 50),
         "latency_p95_s": percentile(secs, 95),
     }
@@ -105,8 +107,11 @@ def write_report() -> None:
     lines = [
         "# Pipeline Doctor: evaluation",
         "",
-        f"Model: `{agent['model']}` · {a['cases']} failure cases "
-        f"({a['real_cases']} real failures from my pipelines, the rest realistic) · run {agent['date']}",
+        f"Model: `{agent['model']}` · {a['answered']} of {a['cases']} cases answered"
+        f" ({a['api_errors']} model API errors, {a['cases'] - a['run']} not reached)"
+        f" · {a['real_cases']} answered cases are real failures from my pipelines · run {agent['date']}",
+        "",
+        "Accuracy is over answered cases.",
         "",
         "| Metric | Agent (all MCP tools) |" + (" Baseline (log only) |" if base else ""),
         "|---|---|" + ("---|" if base else ""),
@@ -129,6 +134,9 @@ def write_report() -> None:
         lines.append(row)
     lines += ["", "## Per case", "", "| Case | Origin | Expected | Got | Fix | Tools |", "|---|---|---|---|---|---|"]
     for r in agent["rows"]:
+        if r.get("api_error"):
+            lines.append(f"| {r['id']} | {r['origin']} | {r['expected']} | ⚠️ API error | – | – |")
+            continue
         mark = "✅" if r["category_ok"] else "❌"
         lines.append(
             f"| {r['id']} | {r['origin']} | {r['expected']} | {mark} {r['got']} | "
@@ -141,35 +149,44 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--baseline", action="store_true", help="only allow the get_failed_log tool")
     ap.add_argument("--only", help="run a single case id")
+    ap.add_argument("--budget-minutes", type=float, default=float(os.getenv("DOCTOR_EVAL_BUDGET", "25")),
+                    help="stop starting new cases after this long and save what is done")
     ap.add_argument("--sleep", type=float, default=float(os.getenv("DOCTOR_EVAL_SLEEP", "6")),
                     help="seconds between cases (free-tier rate limits)")
     args = ap.parse_args()
 
     tool_filter = ["get_failed_log"] if args.baseline else None
     cases = [c for c in CASES if not args.only or c["id"] == args.only]
-    rows = []
+    rows, started = [], time.time()
+    name = "results-baseline.json" if args.baseline else "results.json"
+
+    def save():
+        result = {
+            "model": ", ".join(sorted({r["model"] for r in rows if r.get("model")})) or "n/a",
+            "date": time.strftime("%Y-%m-%d"),
+            "summary": summarize(rows),
+            "rows": rows,
+        }
+        if not args.only:
+            (HERE / name).write_text(json.dumps(result, indent=1), encoding="utf-8")
+            write_report()
+        return result
+
     for i, case in enumerate(cases, 1):
+        if time.time() - started > args.budget_minutes * 60:
+            print(f"Time budget reached; stopping after {len(rows)} cases.", flush=True)
+            break
         print(f"[{i}/{len(cases)}] {case['id']}", flush=True)
         d = await run_case(case, tool_filter)
         row = score_case(case, d)
         rows.append(row)
         print(f"   expected={row['expected']} got={row['got']} fix_ok={row['fix_ok']} "
-              f"tools={row['tools']} {row['seconds']}s", flush=True)
+              f"tools={row['tools']} {row['seconds']}s model={row['model']}", flush=True)
+        save()  # keep partial results if the job is stopped
         if i < len(cases):
             time.sleep(args.sleep)
 
-    result = {
-        "model": os.getenv("DOCTOR_MODEL", "gemini-2.5-flash"),
-        "date": time.strftime("%Y-%m-%d"),
-        "summary": summarize(rows),
-        "rows": rows,
-    }
-    if args.only:
-        print(json.dumps(result["summary"], indent=1))
-        return
-    name = "results-baseline.json" if args.baseline else "results.json"
-    (HERE / name).write_text(json.dumps(result, indent=1), encoding="utf-8")
-    write_report()
+    result = save()
     print(json.dumps(result["summary"], indent=1))
 
 

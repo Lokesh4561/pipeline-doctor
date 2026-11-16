@@ -1,6 +1,7 @@
 """Google ADK agent that investigates a failed run through the MCP tools."""
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -28,7 +29,15 @@ CATEGORIES = [
     "unknown",
 ]
 
-DEFAULT_MODEL = os.getenv("DOCTOR_MODEL", "gemini-2.5-flash")
+# Tried in order: if a model is busy (503), rate limited (429) or retired (404),
+# the next one is used. Override with DOCTOR_MODEL="model-a,model-b".
+DEFAULT_MODELS = "gemini-3.8-flash,gemini-flash-latest,gemini-flash-lite-latest"
+CASE_TIMEOUT = float(os.getenv("DOCTOR_TIMEOUT", "150"))  # seconds per diagnosis attempt
+SKIP_MODEL_ERRORS = ("429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "NOT_FOUND", "TimeoutError")
+
+
+def models() -> list[str]:
+    return [m.strip() for m in (os.getenv("DOCTOR_MODEL") or DEFAULT_MODELS).split(",") if m.strip()]
 
 INSTRUCTION = f"""You are Pipeline Doctor, an on-call data engineer.
 A data pipeline run failed. Find the ROOT CAUSE and the FIX.
@@ -61,6 +70,7 @@ class Diagnosis:
     tools_called: list[str] = field(default_factory=list)
     seconds: float = 0.0
     raw: str = ""
+    model: str = ""
 
     def to_dict(self) -> dict:
         return self.__dict__.copy()
@@ -100,15 +110,22 @@ def build_agent(model=None, extra_env: dict | None = None, tool_filter: list[str
     )
     return LlmAgent(
         name="pipeline_doctor",
-        model=model or DEFAULT_MODEL,
+        model=model or models()[0],
         instruction=INSTRUCTION,
         tools=[toolset],
-        generate_content_config=types.GenerateContentConfig(temperature=0),
+        generate_content_config=types.GenerateContentConfig(
+            temperature=0,
+            http_options=types.HttpOptions(
+                timeout=60_000,  # ms per model call
+                retry_options=types.HttpRetryOptions(
+                    attempts=2, initial_delay=3, max_delay=10, http_status_codes=[429, 500, 503, 504]
+                ),
+            ),
+        ),
     )
 
 
-async def diagnose(repo: str, run_id: str | int, context: str = "", model=None,
-                   extra_env: dict | None = None, tool_filter: list[str] | None = None) -> Diagnosis:
+async def _diagnose_once(repo, run_id, context, model, extra_env, tool_filter) -> Diagnosis:
     agent = build_agent(model, extra_env, tool_filter)
     runner = InMemoryRunner(agent=agent, app_name="pipeline_doctor")
     session = await runner.session_service.create_session(app_name="pipeline_doctor", user_id="ci")
@@ -135,4 +152,24 @@ async def diagnose(repo: str, run_id: str | int, context: str = "", model=None,
         tools_called=tools,
         seconds=round(time.perf_counter() - started, 1),
         raw=final,
+        model=model if isinstance(model, str) else getattr(model, "model", ""),
     )
+
+
+async def diagnose(repo: str, run_id: str | int, context: str = "", model=None,
+                   extra_env: dict | None = None, tool_filter: list[str] | None = None) -> Diagnosis:
+    """Diagnose one run. Falls back to the next model when one is busy, rate limited or retired."""
+    candidates = [model] if model is not None else models()
+    last_error: Exception | None = None
+    for m in candidates:
+        try:
+            return await asyncio.wait_for(
+                _diagnose_once(repo, run_id, context, m, extra_env, tool_filter), timeout=CASE_TIMEOUT
+            )
+        except Exception as e:  # noqa: BLE001
+            last_error = e
+            text = f"{type(e).__name__}: {e}"
+            if not any(code in text for code in SKIP_MODEL_ERRORS):
+                raise
+            print(f"  model {m} unavailable ({text[:120]}), trying next", file=sys.stderr, flush=True)
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
