@@ -1,71 +1,94 @@
 {
- "model": "gemini-2.5-flash",
+ "model": "gemini-flash-lite-latest",
  "date": "2026-11-16",
  "summary": {
   "cases": 25,
-  "category_accuracy": 0.0,
-  "fix_accuracy": 0.0,
-  "both_correct": 0.0,
-  "real_cases": 7,
-  "real_category_accuracy": 0.0,
-  "avg_tool_calls": 0.0,
-  "log_read_first": 0.0,
+  "run": 25,
+  "answered": 23,
+  "api_errors": 2,
+  "category_accuracy": 78.3,
+  "fix_accuracy": 82.6,
+  "both_correct": 69.6,
+  "real_cases": 5,
+  "real_category_accuracy": 100.0,
+  "avg_tool_calls": 2.0,
+  "log_read_first": 95.7,
   "secrets_leaked": 0,
-  "latency_p50_s": 0.0,
-  "latency_p95_s": 0.0
+  "latency_p50_s": 2.7,
+  "latency_p95_s": 4.0
  },
  "rows": [
   {
    "id": "aq-ipv6-unreachable",
    "origin": "real",
    "expected": "network",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "network",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "check_database"
+   ],
+   "seconds": 3.8,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline failed to connect to the PostgreSQL database because the network was unreachable (IPv6 routing issue to the database server)."
   },
   {
    "id": "aq-password-failed",
    "origin": "real",
    "expected": "auth_failure",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "auth_failure",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 1.9,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline failed to connect to the PostgreSQL database because the password authentication failed for user 'neondb_owner'."
   },
   {
    "id": "aq-secret-pasted-toml",
    "origin": "real",
    "expected": "secret_misconfigured",
-   "got": "error",
-   "category_ok": false,
+   "got": "secret_misconfigured",
+   "category_ok": true,
    "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 2.6,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline code is passing the literal 'DATABASE_URL' string directly as the connection string or conninfo parameter to psycopg instead of retrieving its value from the environment variables (e.g., os.environ.get('DATABASE_URL'))."
   },
   {
    "id": "aq-workflow-yaml-broken",
    "origin": "real",
    "expected": "workflow_config",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "workflow_config",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "list_recent_runs",
+    "get_workflow_file"
+   ],
+   "seconds": 3.1,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GitHub Actions workflow file has an incorrect indentation for the `runs-on` property under the `ingest` job, which causes parsing failure before any jobs can start."
   },
   {
    "id": "wp-databricks-quota",
@@ -78,20 +101,26 @@
    "tools": [],
    "seconds": 0.0,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": true,
+   "model": "",
+   "root_cause": "ServerError: 504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'message': 'Deadline expired before operation could complete.', 'status': 'DEADLINE_EXCEEDED'}}"
   },
   {
    "id": "wp-gdelt-429",
    "origin": "real",
    "expected": "rate_limit_or_quota",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "rate_limit_or_quota",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.1,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline encountered a 429 Too Many Requests HTTP error while trying to fetch news articles from the GDELT API."
   },
   {
    "id": "wp-gemini-timeout",
@@ -104,241 +133,334 @@
    "tools": [],
    "seconds": 0.0,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": true,
+   "model": "",
+   "root_cause": "ServerError: 504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'message': 'Deadline expired before operation could complete.', 'status': 'DEADLINE_EXCEEDED'}}"
   },
   {
    "id": "wp-ingest-token-expired",
    "origin": "realistic",
    "expected": "auth_failure",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "auth_failure",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.1,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The Databricks access token used in the upload step is invalid or expired, resulting in a 403 Forbidden PERMISSION_DENIED error."
   },
   {
    "id": "dep-module-not-found",
    "origin": "realistic",
    "expected": "dependency",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "dependency",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 2.6,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The Python script attempts to import 'pandas', but the required dependencies (such as pandas) have not been installed in the workflow environment."
   },
   {
    "id": "dep-version-conflict",
    "origin": "realistic",
    "expected": "dependency",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "dependency",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.3,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "A dependency conflict occurred during pip install because databricks-sdk 0.30.0 requires requests>=2.28.1, but requests 2.25.0 is currently specified."
   },
   {
    "id": "dep-python-version",
    "origin": "realistic",
    "expected": "dependency",
-   "got": "error",
+   "got": "workflow_config",
    "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 3.2,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GitHub Actions workflow specifies python-version '3.7', which is not available on the 'ubuntu-24.04' runner environment."
   },
   {
    "id": "secret-missing-empty",
    "origin": "realistic",
    "expected": "secret_misconfigured",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "secret_misconfigured",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "list_recent_runs",
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 3.4,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GEMINI_API_KEY secret is missing or not passed to the environment in the GitHub Actions workflow, causing a KeyError when the script tries to read os.environ['GEMINI_API_KEY']."
   },
   {
    "id": "workflow-bad-cron",
    "origin": "realistic",
    "expected": "workflow_config",
-   "got": "error",
-   "category_ok": false,
+   "got": "workflow_config",
+   "category_ok": true,
    "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "list_recent_runs",
+    "get_workflow_file",
+    "recent_commits"
+   ],
+   "seconds": 4.2,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GitHub Actions workflow file is incomplete or syntactically invalid, lacking a 'steps' definition under the 'ingest' job, causing the run to fail before any job could start."
   },
   {
    "id": "workflow-missing-permission",
    "origin": "realistic",
    "expected": "workflow_config",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "workflow_config",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 2.9,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GitHub Actions workflow is missing the required permissions (`id-token: write` and `pages: write`) needed for deploying to GitHub Pages using `actions/deploy-pages@v4`."
   },
   {
    "id": "timeout-job-hang",
    "origin": "realistic",
    "expected": "timeout",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "timeout",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file",
+    "list_recent_runs"
+   ],
+   "seconds": 3.7,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline execution exceeded the maximum allowed GitHub Actions job execution time of 15 minutes while fetching city data."
   },
   {
    "id": "code-keyerror-after-change",
    "origin": "realistic",
    "expected": "code_bug",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "code_bug",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.1,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The pipeline code attempts to access a DataFrame column 'pm2_5' that does not exist, resulting in a KeyError."
   },
   {
    "id": "code-syntax-error",
    "origin": "realistic",
    "expected": "code_bug",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "code_bug",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.7,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "A SyntaxError (missing colon after the condition) occurred in scripts/build.py on line 77."
   },
   {
    "id": "code-test-failure",
    "origin": "realistic",
    "expected": "code_bug",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "code_bug",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "recent_commits"
+   ],
+   "seconds": 2.9,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "A code change introduced a bug where the p95 evaluation metric calculation returned 0.8 instead of being greater than or equal to the median value of 1.2, causing the unit test test_p95_not_below_median to fail."
   },
   {
    "id": "data-file-missing",
    "origin": "realistic",
    "expected": "data_issue",
-   "got": "error",
+   "got": "code_bug",
    "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file",
+    "recent_commits"
+   ],
+   "seconds": 3.4,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The evaluation step attempts to read 'evals/labels.csv' which does not exist in the repository (only 'evals/to_label.csv' and 'evals/stats.json' were added)."
   },
   {
    "id": "data-schema-changed-upstream",
    "origin": "realistic",
    "expected": "data_issue",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "data_issue",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.1,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The upstream API response structure changed or returned unexpected data where the expected key 'components' is missing, causing a KeyError when parsing pm2_5."
   },
   {
    "id": "data-empty-input",
    "origin": "realistic",
    "expected": "data_issue",
-   "got": "error",
+   "got": "upstream_outage",
    "category_ok": false,
    "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "recent_commits"
+   ],
+   "seconds": 2.7,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The Wikimedia pageviews dump URL returned an HTTP 404 Not Found error for the requested date/time (2026-11-15 09:00:00)."
   },
   {
    "id": "upstream-503",
    "origin": "realistic",
    "expected": "upstream_outage",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "upstream_outage",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 1.9,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The upstream air quality API (open-meteo.com) returned a 503 Service Unavailable error during data ingestion."
   },
   {
    "id": "upstream-neon-suspended",
    "origin": "realistic",
    "expected": "rate_limit_or_quota",
-   "got": "error",
-   "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "got": "rate_limit_or_quota",
+   "category_ok": true,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log"
+   ],
+   "seconds": 2.2,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The PostgreSQL database project has exceeded its data transfer quota, causing the connection and pipeline run to fail."
   },
   {
    "id": "network-dns",
    "origin": "realistic",
    "expected": "secret_misconfigured",
-   "got": "error",
+   "got": "workflow_config",
    "category_ok": false,
    "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "get_workflow_file"
+   ],
+   "seconds": 2.7,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The Databricks host URL is misconfigured with a non-existent or misspelled domain name ('dbc-1234.cloud.databrick.com'), causing DNS name resolution failure during the 'Export from Databricks' step."
   },
   {
    "id": "unknown-cancelled",
    "origin": "realistic",
    "expected": "upstream_outage",
-   "got": "error",
+   "got": "unknown",
    "category_ok": false,
-   "fix_ok": false,
-   "confidence": null,
-   "tools": [],
-   "seconds": 0.0,
+   "fix_ok": true,
+   "confidence": "high",
+   "tools": [
+    "get_failed_log",
+    "list_recent_runs",
+    "recent_commits",
+    "get_workflow_file",
+    "check_database"
+   ],
+   "seconds": 4.0,
    "leaked_secret": false,
-   "root_cause": "ClientError: 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest feature"
+   "api_error": false,
+   "model": "gemini-flash-lite-latest",
+   "root_cause": "The GitHub Actions run was cancelled or stopped due to an external runner shutdown signal."
   }
  ]
 }
