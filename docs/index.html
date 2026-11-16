@@ -178,6 +178,9 @@ function renderPipelines(runsByRepo) {
   for (const [repo, runs] of runsByRepo) {
     const byWf = new Map();
     for (const r of runs) {
+      // A run named after its file path comes from a workflow file GitHub could not parse
+      // (e.g. a YAML typo that was later fixed): it is not a real workflow, so skip it.
+      if (r.name.startsWith(".github/")) continue;
       if (!byWf.has(r.name)) byWf.set(r.name, []);
       byWf.get(r.name).push(r);
     }
