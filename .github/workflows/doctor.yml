@@ -1,0 +1,39 @@
+name: pipeline doctor
+on:
+  schedule:
+    - cron: "23 * * * *"   # every hour
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: "How many hours back to look for failed runs"
+        default: "24"
+permissions:
+  contents: read
+  issues: write
+  actions: read
+concurrency: doctor
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Diagnose new failures and open issues
+        env:
+          PYTHONUNBUFFERED: "1"
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
+          DOCTOR_MODEL: ${{ vars.DOCTOR_MODEL || 'gemini-2.5-flash' }}
+          WATCH_REPOS: ${{ vars.WATCH_REPOS }}
+          DOCTOR_GH_TOKEN: ${{ secrets.DOCTOR_GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FRESHNESS_SQL: ${{ vars.FRESHNESS_SQL }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: python -m doctor.cli watch --lookback-hours "${{ inputs.lookback_hours || '2' }}" --max-runs 3
