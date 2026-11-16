@@ -15,19 +15,20 @@ from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from google.genai import types
 from mcp import StdioServerParameters
 
-CATEGORIES = [
-    "network",               # DNS, IPv6/IPv4, connection refused/unreachable
-    "auth_failure",          # wrong/expired password or token, 401/403
-    "secret_misconfigured",  # secret missing, empty, or pasted in the wrong format
-    "workflow_config",       # invalid workflow YAML, wrong runner, bad trigger
-    "rate_limit_or_quota",   # HTTP 429, free-tier or compute quota exceeded
-    "timeout",               # step/job/request timed out or hung
-    "dependency",            # package missing, version conflict, runner image change
-    "code_bug",              # exception caused by our own code change
-    "data_issue",            # missing file, empty/invalid input, schema changed
-    "upstream_outage",       # third-party service down (5xx), endpoint suspended
-    "unknown",
-]
+CATEGORY_HELP = {
+    "network": "DNS, IPv6/IPv4 routing, connection refused or unreachable",
+    "auth_failure": "a credential exists but is wrong, expired or revoked (401/403, password authentication failed)",
+    "secret_misconfigured": "a secret or setting is missing, empty, misspelled or pasted in the wrong format (e.g. an env var that is not set)",
+    "workflow_config": "the workflow file itself is wrong: invalid YAML, bad cron, missing permissions, wrong trigger",
+    "rate_limit_or_quota": "HTTP 429, free-tier, compute or data-transfer quota exceeded",
+    "timeout": "a step, job or request timed out or hung",
+    "dependency": "a package, tool or runtime version is missing, conflicting or unsupported (e.g. pip resolution errors)",
+    "code_bug": "an exception caused by our own code (e.g. a SyntaxError or a failing unit test)",
+    "data_issue": "the input data is the problem: missing, empty or in an unexpected shape",
+    "upstream_outage": "a third-party service or platform failed temporarily (e.g. HTTP 5xx); a retry fixes it",
+    "unknown": "the evidence is not enough to decide",
+}
+CATEGORIES = list(CATEGORY_HELP)
 
 # Tried in order: if a model is busy (503), rate limited (429) or retired (404),
 # the next one is used. Override with DOCTOR_MODEL="model-a,model-b".
@@ -52,8 +53,11 @@ How to work:
 3. Never guess beyond the evidence. If the evidence is not enough, use category "unknown".
 4. Never print secrets, passwords or tokens.
 
+Categories (pick the one that names the ROOT cause, not the symptom):
+{chr(10).join(f"- {k}: {v}" for k, v in CATEGORY_HELP.items())}
+
 Finish with ONLY a JSON object, no markdown fence:
-{{"category": one of {CATEGORIES},
+{{"category": one of the categories above,
   "root_cause": "one or two plain sentences",
   "evidence": ["exact short log lines or tool facts that prove it"],
   "fix": ["concrete steps, with the file/secret/setting to change"],

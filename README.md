@@ -24,8 +24,15 @@ flowchart LR
 ## Results
 
 See **[eval/RESULTS.md](eval/RESULTS.md)**: 25 failure cases (7 real, 18 realistic), the full agent
-vs. a baseline that may only read the log. Metrics: root-cause category accuracy, fix accuracy,
+vs. a baseline that may only read the log.
+The category definitions in the prompt were added after the first run (v1: names only), so later
+runs on the same 25 cases are a development score, not a held-out test. Metrics: root-cause category accuracy, fix accuracy,
 tool calls, whether it reads the log first, planted secrets leaked, latency p50/p95.
+
+## Live dashboard
+
+**https://lokesh4561.github.io/pipeline-doctor/** shows each pipeline's latest run and 30-run history,
+the agent's diagnoses, and the evaluation, read live from the GitHub API in the browser (`docs/index.html`).
 
 ## How it works
 

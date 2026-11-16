@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline Doctor · live dashboard</title>
+<meta name="description" content="Live health of my data pipelines and the AI agent that diagnoses their failures.">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f2; --surface-1: #fcfcfb; --border: #e3e2de;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+    --grid: #e8e7e3;
+    --series-1: #2a78d6; --series-2: #eb6834;
+    --good: #0ca30c; --good-text: #006300; --warning: #fab219; --critical: #d03b3b; --neutral: #a9a8a2;
+    --accent-soft: #e8f1fc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #111110; --surface-1: #1a1a19; --border: #2d2d2b;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --grid: #2a2a28;
+      --series-1: #3987e5; --series-2: #d95926;
+      --good-text: #4cc94c; --neutral: #5d5c57;
+      --accent-soft: #1d2a3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text-primary);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--series-1); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+  .sub { color: var(--text-secondary); margin: 4px 0 0; max-width: 640px; }
+  .meta { color: var(--text-muted); font-size: 13px; text-align: right; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--good-text); }
+  .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); animation: pulse 2s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+  h2 { font-size: 17px; margin: 34px 0 12px; }
+  h2 small { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .kpi .label { color: var(--text-secondary); font-size: 13px; }
+  .kpi .value { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi .note { color: var(--text-muted); font-size: 12.5px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .pipe-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .pipe-name { font-weight: 600; }
+  .pipe-repo { color: var(--text-muted); font-size: 12.5px; }
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .status i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center;
+    color: #fff; font-size: 11px; }
+  .s-good i { background: var(--good); } .s-good { color: var(--good-text); }
+  .s-bad i { background: var(--critical); } .s-bad { color: var(--critical); }
+  .s-run i { background: var(--warning); color: #3a2a00; } .s-run { color: var(--text-secondary); }
+  .s-other i { background: var(--neutral); } .s-other { color: var(--text-secondary); }
+  .strip { display: flex; gap: 2px; margin: 12px 0 6px; height: 22px; }
+  .strip span { flex: 1; max-width: 14px; border-radius: 3px; background: var(--neutral); cursor: default; }
+  .strip span.good { background: var(--good); } .strip span.bad { background: var(--critical); }
+  .strip span.run { background: var(--warning); }
+  .pipe-foot { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 12.5px; }
+  .dx { border-top: 1px solid var(--border); padding: 12px 0; }
+  .dx:first-child { border-top: 0; padding-top: 0; }
+  .dx-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .dx-cause { color: var(--text-secondary); margin: 4px 0 0; font-size: 14px; }
+  .dx-meta { color: var(--text-muted); font-size: 12.5px; margin-top: 2px; }
+  .empty { color: var(--text-muted); font-size: 14px; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px;
+    vertical-align: -1px; background: var(--c); }
+  svg text { fill: var(--text-secondary); font-size: 12px; font-family: inherit; }
+  svg .val { fill: var(--text-primary); font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  details summary { cursor: pointer; color: var(--series-1); margin-top: 12px; font-size: 14px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; }
+  .flow b { background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-weight: 500; }
+  .flow span { color: var(--text-muted); }
+  #tip { position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface-1); font-size: 12.5px;
+    padding: 6px 9px; border-radius: 6px; opacity: 0; transition: opacity .1s; max-width: 280px; z-index: 10; }
+  .err { color: var(--critical); font-size: 13px; }
+  footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🩺 Pipeline Doctor</h1>
+      <p class="sub">Live health of my data pipelines, and an AI agent (Google ADK + MCP + Gemini) that diagnoses every failure and files the fix.</p>
+    </div>
+    <div class="meta"><span class="live">Live</span><br><span id="updated">loading…</span></div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <h2>Pipeline health <small>latest run and the last 30 runs of each workflow</small></h2>
+  <div class="grid2" id="pipelines"><div class="card empty">Loading runs…</div></div>
+
+  <h2>Diagnoses <small>issues opened by the agent</small></h2>
+  <div class="grid2">
+    <div class="card" id="diagnoses"><div class="empty">Loading diagnoses…</div></div>
+    <div class="card"><div style="font-weight:600;margin-bottom:6px">Failures by root cause</div><div id="cats"></div></div>
+  </div>
+
+  <h2>Evaluation <small>replayed failures with known answers: agent with all tools vs. log-only baseline</small></h2>
+  <div class="card">
+    <div class="legend"><span style="--c:var(--series-1)">Agent (all MCP tools)</span><span style="--c:var(--series-2)">Baseline (log only)</span></div>
+    <div id="evalchart"></div>
+    <div id="evalnote" class="empty"></div>
+    <details><summary>Show every case</summary><div id="evaltable" style="overflow-x:auto;margin-top:8px"></div></details>
+  </div>
+
+  <h2>How it works</h2>
+  <div class="flow">
+    <b>Hourly GitHub Action</b><span>→</span><b>ADK agent (Gemini)</b><span>⇄ MCP</span>
+    <b>6 read-only tools: logs, workflow file, commits, Postgres, Databricks</b><span>→</span><b>GitHub issue: cause + evidence + fix</b>
+  </div>
+
+  <footer>
+    Data is read live from the public GitHub API in your browser.
+    Code: <a href="https://github.com/Lokesh4561/pipeline-doctor">github.com/Lokesh4561/pipeline-doctor</a> ·
+    Built by <a href="https://lokesh4561.github.io">Lokesh Reddy Maddali</a>
+  </footer>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const DOCTOR = "Lokesh4561/pipeline-doctor";
+const WATCH = ["Lokesh4561/india-air-quality-pipeline", "Lokesh4561/wikipedia-pulse"];
+const API = "https://api.github.com";
+const RAW = `https://raw.githubusercontent.com/${DOCTOR}/main/`;
+const DAY = 864e5;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ago = (t) => {
+  const m = Math.round((Date.now() - new Date(t)) / 6e4);
+  if (m < 60) return `${m} min ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h ago`;
+  return `${Math.round(m / 1440)} days ago`;
+};
+const kind = (r) => r.status !== "completed" ? "run" : r.conclusion === "success" ? "good" : r.conclusion === "failure" ? "bad" : "other";
+const STATUS = {
+  good: ["s-good", "✓", "Passing"], bad: ["s-bad", "✕", "Failing"],
+  run: ["s-run", "⟳", "Running"], other: ["s-other", "–", "Cancelled"],
+};
+
+async function getJSON(url) {
+  const r = await fetch(url, { headers: url.startsWith(API) ? { Accept: "application/vnd.github+json" } : {} });
+  if (!r.ok) throw new Error(`${r.status} ${url.startsWith(API) ? "GitHub API" : "file"}`);
+  return r.json();
+}
+
+// ------------------------------------------------------------ tooltip
+const tip = $("tip");
+document.addEventListener("mouseover", (e) => {
+  const t = e.target.closest("[data-tip]");
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.textContent = t.dataset.tip; tip.style.opacity = 1;
+});
+document.addEventListener("mousemove", (e) => {
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - 290) + "px";
+  tip.style.top = e.clientY + 14 + "px";
+});
+
+// ------------------------------------------------------------ pipelines
+function renderPipelines(runsByRepo) {
+  const cards = [];
+  let failing = 0, total = 0, fails7 = 0, runs7 = 0;
+  for (const [repo, runs] of runsByRepo) {
+    const byWf = new Map();
+    for (const r of runs) {
+      if (!byWf.has(r.name)) byWf.set(r.name, []);
+      byWf.get(r.name).push(r);
+    }
+    for (const [wf, list] of byWf) {
+      const last = list[0], k = kind(last);
+      total++; if (k === "bad") failing++;
+      const week = list.filter((r) => Date.now() - new Date(r.created_at) < 7 * DAY && r.status === "completed");
+      runs7 += week.length; fails7 += week.filter((r) => r.conclusion === "failure").length;
+      const okRate = week.length ? Math.round(100 * week.filter((r) => r.conclusion === "success").length / week.length) : null;
+      const strip = list.slice(0, 30).reverse().map((r) =>
+        `<span class="${kind(r)}" data-tip="#${r.run_number} · ${STATUS[kind(r)][2]} · ${new Date(r.created_at).toLocaleString()}"></span>`).join("");
+      const [cls, icon, label] = STATUS[k];
+      cards.push(`<div class="card">
+        <div class="pipe-head"><div><div class="pipe-name">${esc(wf)}</div><div class="pipe-repo">${esc(repo.split("/")[1])}</div></div>
+          <a class="status ${cls}" href="${esc(last.html_url)}" target="_blank" rel="noopener"><i aria-hidden="true">${icon}</i>${label}</a></div>
+        <div class="strip" aria-label="last ${Math.min(30, list.length)} runs">${strip}</div>
+        <div class="pipe-foot"><span>last run ${ago(last.created_at)}</span><span>${okRate === null ? "no runs in 7 days" : `${okRate}% passed (7 days)`}</span></div>
+      </div>`);
+    }
+  }
+  $("pipelines").innerHTML = cards.join("") || `<div class="card empty">No workflow runs found.</div>`;
+  return { failing, total, fails7, runs7 };
+}
+
+// ------------------------------------------------------------ diagnoses
+function parseIssue(i) {
+  const cat = (i.title.match(/^\[([a-z_]+)\]/) || [])[1] || "unknown";
+  const conf = (i.body?.match(/\*\*Confidence:\*\*\s*\S+\s*(high|medium|low)/) || [])[1] || "";
+  const cause = (i.body?.split("### Root cause")[1] || "").split("###")[0].trim();
+  return { cat, conf, cause, title: i.title.replace(/^\[[a-z_]+\]\s*/, ""), url: i.html_url, state: i.state, created: i.created_at };
+}
+
+function renderDiagnoses(issues) {
+  const list = issues.map(parseIssue);
+  $("diagnoses").innerHTML = list.length ? list.slice(0, 6).map((d) => `<div class="dx">
+      <div class="dx-title"><span class="chip">${esc(d.cat)}</span><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a></div>
+      <p class="dx-cause">${esc(d.cause.slice(0, 220))}${d.cause.length > 220 ? "…" : ""}</p>
+      <div class="dx-meta">${ago(d.created)} · confidence ${esc(d.conf || "n/a")} · ${d.state === "closed" ? "fixed ✓" : "open"}</div>
+    </div>`).join("") + (list.length > 6 ? `<div class="dx"><a href="https://github.com/${DOCTOR}/issues?q=label%3Apipeline-doctor" target="_blank" rel="noopener">All ${list.length} diagnoses →</a></div>` : "")
+    : `<div class="empty">No failures diagnosed yet. All quiet.</div>`;
+
+  const counts = {};
+  list.forEach((d) => counts[d.cat] = (counts[d.cat] || 0) + 1);
+  const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  $("cats").innerHTML = rows.length ? hbars(rows.map(([k, v]) => ({ label: k, values: [v] })), { max: Math.max(...rows.map((r) => r[1])), unit: "", W: 440, labelW: 140 })
+    : `<div class="empty">Appears after the first diagnosis.</div>`;
+  return list;
+}
+
+// ------------------------------------------------------------ horizontal bars (1 or 2 series)
+function hbars(rows, { max, unit = "%", names = [""], W = 640, labelW = 190 }) {
+  const series = rows[0].values.length, barH = 14, gap = 2, groupGap = 14, plotW = W - labelW - 50;
+  const gH = series * barH + (series - 1) * gap;
+  const H = rows.length * (gH + groupGap);
+  const x = (v) => Math.max(0, (v / max) * plotW);
+  const colors = ["var(--series-1)", "var(--series-2)"];
+  let out = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" style="max-width:${W}px;display:block">`;
+  [0.5, 1].forEach((f) => out += `<line x1="${labelW + plotW * f}" x2="${labelW + plotW * f}" y1="0" y2="${H - groupGap}" stroke="var(--grid)"/>`);
+  rows.forEach((r, i) => {
+    const y0 = i * (gH + groupGap);
+    out += `<text x="${labelW - 10}" y="${y0 + gH / 2 + 4}" text-anchor="end">${esc(r.label)}</text>`;
+    r.values.forEach((v, s) => {
+      if (v === null || v === undefined) return;
+      const y = y0 + s * (barH + gap), w = x(v);
+      const tipText = `${r.label}${names[s] ? " · " + names[s] : ""}: ${v}${unit}`;
+      out += `<g data-tip="${esc(tipText)}"><rect x="${labelW}" y="${y - 3}" width="${plotW + 40}" height="${barH + 6}" fill="transparent"/>
+        <path d="M${labelW},${y} h${Math.max(w - 4, 0)} a4,4 0 0 1 4,4 v${barH - 8} a4,4 0 0 1 -4,4 h${-Math.max(w - 4, 0)} z" fill="${colors[s]}"/>
+        <text class="val" x="${labelW + w + 6}" y="${y + barH - 3}">${v}${unit}</text></g>`;
+    });
+  });
+  return out + "</svg>";
+}
+
+// ------------------------------------------------------------ evaluation
+function renderEval(agent, base) {
+  if (!agent) { $("evalnote").textContent = "Evaluation has not run yet."; return null; }
+  const a = agent.summary, b = base?.summary || {};
+  const metrics = [
+    ["category_accuracy", "Root cause correct"],
+    ["fix_accuracy", "Suggested fix correct"],
+    ["both_correct", "Both correct"],
+    ["real_category_accuracy", "Real incidents: cause correct"],
+  ];
+  $("evalchart").innerHTML = hbars(metrics.map(([k, l]) => ({ label: l, values: [a[k], b[k] ?? null] })),
+    { max: 100, names: ["Agent", "Baseline"] });
+  $("evalnote").innerHTML = `Model <code>${esc(agent.model)}</code> · ${a.answered} of ${a.cases} cases answered` +
+    (a.api_errors ? ` (${a.api_errors} skipped, model API busy)` : "") +
+    ` · ${a.avg_tool_calls} tool calls per case · median ${a.latency_p50_s}s · ${a.secrets_leaked} planted secrets leaked · run ${esc(agent.date)}`;
+  $("evaltable").innerHTML = `<table><thead><tr><th>Case</th><th>Origin</th><th>Expected</th><th>Agent said</th><th>Fix</th><th>Tools used</th></tr></thead><tbody>` +
+    agent.rows.map((r) => `<tr><td class="mono">${esc(r.id)}</td><td>${esc(r.origin)}</td><td class="mono">${esc(r.expected)}</td>
+      <td class="mono">${r.api_error ? "⚠️ API error" : (r.category_ok ? "✅ " : "❌ ") + esc(r.got)}</td>
+      <td>${r.api_error ? "–" : r.fix_ok ? "✅" : "❌"}</td><td class="mono">${esc((r.tools || []).join(" → "))}</td></tr>`).join("") + "</tbody></table>";
+  return a;
+}
+
+// ------------------------------------------------------------ KPIs
+function renderKpis(p, diagnoses, a, lastCheck) {
+  const tiles = [
+    ["Workflows passing now", p ? `${p.total - p.failing}/${p.total}` : "–", p ? `${p.failing ? p.failing + " failing" : "all green"}` : ""],
+    ["Failed runs, last 7 days", p ? p.fails7 : "–", p ? `out of ${p.runs7} runs` : ""],
+    ["Failures diagnosed", diagnoses ? diagnoses.length : "–", diagnoses ? `${diagnoses.filter((d) => d.state === "closed").length} fixed and closed` : ""],
+    ["Root cause accuracy", a ? `${a.category_accuracy}%` : "–", a ? `${a.real_category_accuracy}% on real incidents` : "evaluation pending"],
+  ];
+  $("kpis").innerHTML = tiles.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+  $("updated").textContent = `refreshed ${new Date().toLocaleTimeString()}` + (lastCheck ? ` · doctor checked ${ago(lastCheck)}` : "");
+}
+
+async function load() {
+  const settle = (p) => p.then((v) => [v, null], (e) => [null, e]);
+  const [runsRes, issuesRes, doctorRes, evalRes, baseRes] = await Promise.all([
+    settle(Promise.all(WATCH.map((r) => getJSON(`${API}/repos/${r}/actions/runs?per_page=100`).then((d) => [r, d.workflow_runs])))),
+    settle(getJSON(`${API}/repos/${DOCTOR}/issues?labels=pipeline-doctor&state=all&per_page=100`)),
+    settle(getJSON(`${API}/repos/${DOCTOR}/actions/workflows/doctor.yml/runs?per_page=1`)),
+    settle(getJSON(RAW + "eval/results.json")),
+    settle(getJSON(RAW + "eval/results-baseline.json")),
+  ]);
+  let p = null, d = null, a = null;
+  if (runsRes[0]) p = renderPipelines(runsRes[0]);
+  else $("pipelines").innerHTML = `<div class="card err">Could not load runs (${esc(runsRes[1].message)}). GitHub allows 60 requests an hour per visitor; try again later.</div>`;
+  if (issuesRes[0]) d = renderDiagnoses(issuesRes[0].filter((i) => !i.pull_request));
+  else $("diagnoses").innerHTML = `<div class="err">Could not load diagnoses (${esc(issuesRes[1].message)}).</div>`;
+  a = renderEval(evalRes[0], baseRes[0]);
+  const lastCheck = doctorRes[0]?.workflow_runs?.[0]?.created_at;
+  renderKpis(p, d, a, lastCheck);
+}
+
+load();
+setInterval(load, 5 * 60 * 1000);
+</script>
+</body>
+</html>
